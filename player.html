@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Zlop player</title>
+<style>html,body,#p{margin:0;width:100%;height:100%;background:#000;overflow:hidden}</style>
+</head>
+<body>
+<div id="p"></div>
+<script>
+// A YouTube player for the Zlop TV app. The app is a local file, and YouTube's embedded
+// player needs a page with a web address. The app steers it with postMessage.
+(function () {
+  'use strict';
+  var player = null, ready = false, pending = null;
+  var post = function (o) { o.src = 'zlop-player'; window.parent.postMessage(JSON.stringify(o), '*'); };
+  var valid = function (id) { return typeof id === 'string' && /^[\w-]{11}$/.test(id); };
+  var load = function (m) {
+    if (m.muted === false) player.unMute(); else player.mute();
+    player.loadVideoById(m.id);
+  };
+  window.addEventListener('message', function (e) {
+    var m;
+    try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
+    if (!m || m.dst !== 'zlop-player') return;
+    if (m.cmd === 'load' && valid(m.id)) { if (ready) load(m); else pending = m; }
+    else if (!ready) return;
+    else if (m.cmd === 'stop') player.stopVideo();
+    else if (m.cmd === 'mute') player.mute();
+    else if (m.cmd === 'unmute') { player.unMute(); player.setVolume(100); post({ ev: 'sound', muted: player.isMuted() }); }
+  });
+  window.onYouTubeIframeAPIReady = function () {
+    player = new YT.Player('p', {
+      width: '100%', height: '100%',
+      playerVars: { autoplay: 1, mute: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, iv_load_policy: 3, playsinline: 1, origin: location.origin },
+      events: {
+        onReady: function () { ready = true; post({ ev: 'ready' }); if (pending) { load(pending); pending = null; } },
+        onStateChange: function (e) { post({ ev: 'state', state: e.data, muted: player.isMuted() }); },
+        onError: function (e) { post({ ev: 'error', code: e.data }); }
+      }
+    });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  s.onerror = function () { post({ ev: 'error', code: 'script' }); };
+  document.head.appendChild(s);
+  post({ ev: 'page' });
+})();
+</script>
+</body>
+</html>
