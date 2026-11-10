@@ -16,9 +16,18 @@
   var player = null, ready = false, pending = null;
   var post = function (o) { o.src = 'zlop-player'; window.parent.postMessage(JSON.stringify(o), '*'); };
   var valid = function (id) { return typeof id === 'string' && /^[\w-]{11}$/.test(id); };
+  var ticker = null;
+  // While a video plays: how far it is, so the app shows it only once it really runs.
+  var tick = function () {
+    clearInterval(ticker);
+    ticker = setInterval(function () {
+      if (player.getPlayerState() === 1) post({ ev: 'time', t: player.getCurrentTime(), q: player.getPlaybackQuality(), f: player.getVideoLoadedFraction() });
+    }, 250);
+  };
   var load = function (m) {
     if (m.muted === false) player.unMute(); else player.mute();
     player.loadVideoById(m.id);
+    tick();
   };
   window.addEventListener('message', function (e) {
     var m;
@@ -26,7 +35,7 @@
     if (!m || m.dst !== 'zlop-player') return;
     if (m.cmd === 'load' && valid(m.id)) { if (ready) load(m); else pending = m; }
     else if (!ready) return;
-    else if (m.cmd === 'stop') player.stopVideo();
+    else if (m.cmd === 'stop') { clearInterval(ticker); player.stopVideo(); }
     else if (m.cmd === 'mute') player.mute();
     else if (m.cmd === 'unmute') { player.unMute(); player.setVolume(100); post({ ev: 'sound', muted: player.isMuted() }); }
   });
