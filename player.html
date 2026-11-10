@@ -25,7 +25,9 @@
     }, 250);
   };
   var load = function (m) {
-    if (m.muted === false) player.unMute(); else player.mute();
+    // With sound, optionally at a volume (0: sound on but silent, raised later; a TV may
+    // refuse to switch sound on long after a key press, but not a volume change).
+    if (m.muted === false) { player.unMute(); player.setVolume(typeof m.volume === 'number' ? m.volume : 100); } else player.mute();
     player.loadVideoById(m.id);
     tick();
   };
@@ -38,6 +40,7 @@
     else if (m.cmd === 'stop') { clearInterval(ticker); player.stopVideo(); }
     else if (m.cmd === 'mute') player.mute();
     else if (m.cmd === 'unmute') { player.unMute(); player.setVolume(100); post({ ev: 'sound', muted: player.isMuted() }); }
+    else if (m.cmd === 'volume' && typeof m.v === 'number') { player.setVolume(m.v); post({ ev: 'sound', muted: player.isMuted(), volume: m.v }); }
   });
   window.onYouTubeIframeAPIReady = function () {
     player = new YT.Player('p', {
